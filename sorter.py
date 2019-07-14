@@ -21,6 +21,7 @@ outpath = "h:\\proc\\Output\\"
 regex = []
 filename = []
 queues = []
+watchers = []
 lines_per_file = 10000000
 
 def splitfile(lines,file):
@@ -66,7 +67,7 @@ def regexfunc(strinput):
 
 def listener(msg,filename):
 	'''listens for messages on the q, writes to file. '''
-	f = open(outpath + filename, 'a')
+	#f = open(outpath + filename, 'a')
 	while 1:
 
 		m = msg.get()
@@ -75,20 +76,20 @@ def listener(msg,filename):
 			# break
 		#print ("[+] Writing " + m)
 		sys.stdout.flush()
-		#with open(outpath + filename, 'a') as output:
-		#	output.write(str(m) + "\n")
+		with open(outpath + filename, 'a') as output:
+			output.write(str(m) + "\n")
 			
-		f.write(str(m) + '\n')
-		f.flush()
-	f.close()
+		#f.write(str(m) + '\n')
+		#f.flush()
+	#f.close()
 
 def readcsv(searchfile):
 	manager = mp.Manager()
-	pool = mp.Pool(mp.cpu_count() + 2)
+	#pool = mp.Pool(mp.cpu_count() + 2)
 	with open(searchfile, "r" ) as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=',')
 		for row in csv_reader:
-			print(f'Read regex {row["regex"]} save to file {row["filename"]}.')
+			#print(f'Read regex {row["regex"]} save to file {row["filename"]}.')
 			#Append to the global array
 			regex.append(row["regex"])
 			filename.append(row["filename"])
@@ -97,13 +98,17 @@ def readcsv(searchfile):
 			queues.append(q)
 			
 			#and create a listener for each line file
-			watcher = pool.apply_async(listener, (q,row["filename"]))
+			#watcher = pool.apply_async(listener, (q,row["filename"]))
+			watcher = mp.Process(target=listener, args=(q,row["filename"]))
+			watchers.append(watcher)
 			print (f'[+]setting up {watcher} in the name of {row["filename"]}')
+			watcher.start()
+			#watcher.join()
 			print("\n")
-			pool.join()
+			#pool.join()
 	#setup a trash writer
 	
-	print(f'readcsv queues {queues}')
+	#print(f'readcsv queues {queues}')
 
 def main():
 	#must use Manager queue here, or will not work
@@ -118,18 +123,21 @@ def main():
 		#multithread this in the future
 		
 	for file in files:
-		print("reading " + file)
+		#print("reading " + file)
 		#try:
 		with open(file, 'r') as infile:
 			for line in infile:
 				#feed the line into the regex function
 				regexfunc(line.rstrip())
-			#os.remove(file)
+				#os.remove(file)
 		#except:
 		#	print("[+]Something went wrong")
 		#	pass
 	#pool.close()
-	#pool.join()
+	print ("[+]Finishing off")
+	for watcher in watchers:
+		watcher.join()
+	
 	splitfile(lines_per_file,trashfile)
 
 
