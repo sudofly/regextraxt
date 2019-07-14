@@ -27,7 +27,7 @@ lines_per_file = 100000
 
 def splitfile(lines,file):
 	smallfile = None
-	with open(file) as bigfile:
+	with open(file, errors='ignore') as bigfile:
 		for lineno, line in enumerate(bigfile):
 			if lineno % lines == 0:
 				if smallfile:
@@ -123,20 +123,14 @@ def readcsv(searchfile):
 			watchers.append(watcher)
 			print (f'[+]setting up {watcher} in the name of {row["filename"]}')
 			watcher.start()
-			#watcher.join()
 			print("\n")
-			#pool.join()
+			
 	#setup a trash writer
 	
-	#print(f'readcsv queues {queues}')
-
 def main():
 	#must use Manager queue here, or will not work
-	#manager = mp.Manager()
-	#q = manager.Queue()  
-	#pool = mp.Pool(mp.cpu_count() + 2)
+	#pool = mp.Pool(mp.cpu_count())
 	readcsv("searches.csv")
-	#time.sleep(3)
 	files = [file for file in glob.glob(inpath + "**/*", recursive=True)]
 		
 	for file in files:
@@ -145,18 +139,19 @@ def main():
 	files = [file for file in glob.glob(inpath + "**/*", recursive=True)]
 	for file in files:
 		#print("reading " + file)
-		#try:
+		try:
 		
-		with open(file, 'r') as infile:
-			for line in infile:
-				#feed the line into the regex function
-				regexfunc(line.rstrip())
-		os.remove(file)	
+			with open(file, 'r') as infile:
+				for line in infile:
+					#feed the line into the regex function
+					regexfunc(line.rstrip())
+					#spawnedregex = pool.apply_async(regexfunc(line.rstrip()))
+			os.remove(file)
 			
-		#except:
-		#	print("[+]Something went wrong")
-		#	pass
-	#pool.close()
+		except:
+			print("[+]Something went wrong, moving on to the next file")
+			pass
+
 	proctime = time.time()
 	print(f'Total regex procesomg time {proctime - start}')
 	print ("[+]Finishing off")
