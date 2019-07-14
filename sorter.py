@@ -5,7 +5,7 @@ import os
 import sys
 import multiprocessing as mp
 import time
-
+import random
 
 
 #import the config csv
@@ -32,7 +32,7 @@ def splitfile(lines,file):
 			if lineno % lines == 0:
 				if smallfile:
 					smallfile.close()
-				small_filename = file +"_{}.txt".format(lineno + lines)
+				small_filename = file + "." + str(random.randint(1,10000)) + ".{}.txt".format(lineno + lines)
 				smallfile = open(small_filename, "w")
 			smallfile.write(line)
 		if smallfile:
