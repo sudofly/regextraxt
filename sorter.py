@@ -15,6 +15,7 @@ import time
 
 #the trash file where unmatched lines go
 trashfile = "trash.txt"
+trashpath = "h:\\proc\\"
 #the path to the files you want to sort
 inpath = "h:\\proc\\Input2\\"
 outpath = "h:\\proc\\Output\\"
@@ -22,7 +23,7 @@ regex = []
 filename = []
 queues = []
 watchers = []
-lines_per_file = 10000000
+lines_per_file = 100000
 
 def splitfile(lines,file):
 	smallfile = None
@@ -31,14 +32,28 @@ def splitfile(lines,file):
 			if lineno % lines == 0:
 				if smallfile:
 					smallfile.close()
-				small_filename = inpath + "recycled_" + file +"_{}.txt".format(lineno + lines)
-				print (outpath +"Small_file")
+				small_filename = file +"_{}.txt".format(lineno + lines)
 				smallfile = open(small_filename, "w")
 			smallfile.write(line)
 		if smallfile:
 			smallfile.close()
 	#delete trash
 	os.remove(file)
+	
+def splittrash(lines,path,file):
+	smallfile = None
+	with open(path + file) as bigfile:
+		for lineno, line in enumerate(bigfile):
+			if lineno % lines == 0:
+				if smallfile:
+					smallfile.close()
+				small_filename = inpath + "recycled_" + file +"_{}.txt".format(lineno + lines)
+				smallfile = open(small_filename, "w")
+			smallfile.write(line)
+		if smallfile:
+			smallfile.close()
+	#delete trash
+	os.remove(path + file)
 	
 def regexfunc(strinput):
 	line_count =0
@@ -61,24 +76,29 @@ def regexfunc(strinput):
 		
 	if not matched:
 		#print (f"[+] Didnt match {strinput} and saving to trash")
-		with open(trashfile,"a") as output:
+		with open(trashpath + trashfile,"a") as output:
 			output.write(strinput + "\n")
 		matched = True
 
 def listener(msg,filename):
 	'''listens for messages on the q, writes to file. '''
-	#f = open(outpath + filename, 'a')
+	#f = open(outpath + filename, 'a', buffering=1024)
 	while 1:
+		g = []
+		for i in range(10000):
+			m = msg.get()
+			if m == 'end':
+				break
+			g.append(m + "\n")
 
-		m = msg.get()
-		# if m == 'kill':
-			# f.write('killed')
-			# break
 		#print ("[+] Writing " + m)
-		sys.stdout.flush()
+		
 		with open(outpath + filename, 'a') as output:
-			output.write(str(m) + "\n")
-			
+			#output.write(str(m) + "\n")
+			output.writelines(g)
+			#g.clear()
+		if m == 'end':
+			break
 		#f.write(str(m) + '\n')
 		#f.flush()
 	#f.close()
@@ -116,29 +136,41 @@ def main():
 	#q = manager.Queue()  
 	#pool = mp.Pool(mp.cpu_count() + 2)
 	readcsv("searches.csv")
-	time.sleep(3)
+	#time.sleep(3)
 	files = [file for file in glob.glob(inpath + "**/*", recursive=True)]
-	#for file in files:
-		#splitfile(lines_per_file,file)
-		#multithread this in the future
 		
+	for file in files:
+		splitfile(lines_per_file,file)
+	
+	files = [file for file in glob.glob(inpath + "**/*", recursive=True)]
 	for file in files:
 		#print("reading " + file)
 		#try:
+		
 		with open(file, 'r') as infile:
 			for line in infile:
 				#feed the line into the regex function
 				regexfunc(line.rstrip())
-				#os.remove(file)
+		os.remove(file)	
+			
 		#except:
 		#	print("[+]Something went wrong")
 		#	pass
 	#pool.close()
+	proctime = time.time()
+	print(f'Total regex procesomg time {proctime - start}')
 	print ("[+]Finishing off")
+	for q in queues:
+		q.put("end")
+	
 	for watcher in watchers:
+		
 		watcher.join()
 	
-	splitfile(lines_per_file,trashfile)
+	try:
+		splittrash(lines_per_file,trashpath,trashfile)
+	except:
+		pass
 
 
 
