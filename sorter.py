@@ -25,14 +25,14 @@ watchers = []
 lines_per_file = 100000
 
 
-def splitfile(lines, file):
+def splitfile(file):
     smallfile = None
     with open(file, errors='ignore') as bigfile:
         for lineno, line in enumerate(bigfile):
-            if lineno % lines == 0:
+            if lineno % lines_per_file == 0:
                 if smallfile:
                     smallfile.close()
-                small_filename = file + "." + str(random.randint(1, 1000)) + ".{}.txt".format(lineno + lines)
+                small_filename = file + "." + str(random.randint(1, 1000)) + ".{}.txt".format(lineno + lines_per_file)
                 smallfile = open(small_filename, "w")
             smallfile.write(line)
         if smallfile:
@@ -127,12 +127,16 @@ def readcsv(searchfile):
 
 def main():
     # must use Manager queue here, or will not work
-    # pool = mp.Pool(mp.cpu_count())
-    readcsv("searches.csv")
-    files = [file for file in glob.glob(inpath + "**/*", recursive=True) if not os.path.isdir(file)]
-    for file in files:
-        splitfile(lines_per_file, file)
+    pool = mp.Pool(mp.cpu_count() + 2)
 
+    # files = [file for file in glob.glob(inpath + "**/*", recursive=True) if not os.path.isdir(file)]
+    files = [file for file in glob.glob(inpath + "**/*", recursive=True) if not os.path.isdir(file) if
+             os.path.getsize(file) > 5000000]
+    # for file in files:
+    # print (files)
+    pool.map(splitfile, files)
+    pool.close()
+    readcsv("searches.csv")
     files = [file for file in glob.glob(inpath + "**/*.*", recursive=True) if not os.path.isdir(file)]
     for file in files:
         # print("reading " + file)
@@ -142,7 +146,7 @@ def main():
                 for line in infile:
                     # feed the line into the regex function
                     regexfunc(line.rstrip())
-            # spawnedregex = pool.apply_async(regexfunc(line.rstrip()))
+                # spawnedregex = pool.apply_async(regexfunc(line.rstrip()))
             os.remove(file)
 
         except:
@@ -150,7 +154,7 @@ def main():
             pass
 
     proctime = time.time()
-    print(f'Total regex procesomg time {proctime - start}')
+    print(f'Total regex processing time {proctime - start}')
     print("[+]Finishing off")
     for q in queues:
         q.put("end")
